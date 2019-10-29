@@ -57,7 +57,7 @@ class RandMRSortLearning():
     def __init__(self, nb_alternatives, nb_categories, \
                     nb_criteria, dir_criteria, l_dupl_criteria, \
                     nb_tests, nb_models, \
-                    meta_l, meta_ll, meta_nb_models):
+                    meta_l, meta_ll, meta_nb_models, noise = None):
         self.nb_alternatives = nb_alternatives
         self.nb_categories = nb_categories
         self.nb_criteria = nb_criteria
@@ -71,6 +71,7 @@ class RandMRSortLearning():
         self.meta_nb_models = meta_nb_models
         self.model = None
         self.pt = None
+        self.noise = noise
         self.learned_models = []
         self.ca_avg = []
         self.ca_tests_avg = []
@@ -81,7 +82,10 @@ class RandMRSortLearning():
         self.w_dupl_right_crit = [0]*(nb_models)
         self.nb_null_weights = [0]*(nb_models)
         self.exec_time = [0]*(nb_models)
+        self.cpt_gt_right_w = [0]*(nb_models) #count the number of time the good criteria got a greater weight than its duplicated criteria
         self.cpt_dupl_right_crit = dict()
+        self.nb_under_lim_prof_val = [0]*(nb_models)
+        self.nb_under_lim_prof_test = [0]*(nb_models)
 
 
     def generate_random_instance(self, classif_tolerance_prop = 0.10):
@@ -102,9 +106,9 @@ class RandMRSortLearning():
                 self.a = generate_alternatives(self.nb_alternatives)
                 self.pt,self.pt_dupl = generate_random_performance_table_msjp(self.a, self.model.criteria, dupl_crits = self.dupl_model_criteria)
             self.aa = self.model.get_assignments(self.pt)
+
             i = 1
             size = len(self.aa.get_alternatives_in_category('cat'+str(i)))
-
             while (size >= b_inf) and (size <= b_sup):
                 if i == self.nb_categories:
                     notfound = False
@@ -112,6 +116,9 @@ class RandMRSortLearning():
                 i += 1
                 size = len(self.aa.get_alternatives_in_category('cat'+str(i)))
         self.pt_dupl_sorted = SortedPerformanceTable(self.pt_dupl)
+        if self.noise != None:
+            self.aa_noisy = deepcopy(self.aa)
+            self.aa_err_only = add_errors_in_assignments(self.aa_noisy, self.model.categories, self.noise)
         #self.pt_sorted = SortedPerformanceTable(self.pt)
 
 
@@ -133,10 +140,12 @@ class RandMRSortLearning():
         self.pt_dupl = duplicate_performance_table_msjp(self.pt, self.a, self.model.criteria, dupl_crits = self.dupl_model_criteria)
         #import pdb; pdb.set_trace()
 
-
     def run_mrsort(self):
         categories = self.model.categories_profiles.to_categories()
-        meta = MetaMRSortVCPop4MSJP(self.meta_nb_models, self.dupl_model_criteria, categories, self.pt_dupl_sorted, self.aa)
+        if self.noise is None:
+            meta = MetaMRSortVCPop4MSJP(self.meta_nb_models, self.dupl_model_criteria, categories, self.pt_dupl_sorted, self.aa)
+        else:
+            meta = MetaMRSortVCPop4MSJP(self.meta_nb_models, self.dupl_model_criteria, categories, self.pt_dupl_sorted, self.aa_noisy)
         
         t1 = time.time()
         for i in range(self.meta_l):
@@ -162,6 +171,13 @@ class RandMRSortLearning():
                 totalg += 1
                 if self.aa_learned(alt.id) == "cat1":
                     okg += 1
+            # mesure the effect of enforcing constraints in the presence of duplicated criteria
+            #import pdb; pdb.set_trace()
+            for i,j in self.model2.criteria.items():
+                if i[-1] == "d":
+                    if self.model2.bpt['b1'].performances[i] > self.pt_dupl[alt.id].performances[i]:
+                        self.nb_under_lim_prof_val[self.num_model] += 1
+              
         totalg = 1 if totalg == 0 else totalg
         self.ca_avg += [(float(total-nok)/total)]
         self.ca_good_avg += (float(okg)/totalg)
@@ -176,6 +192,7 @@ class RandMRSortLearning():
         ao_tests = self.model.get_assignments(pt_tests)
         
         al_tests = self.model2.get_assignments(pt_tests_dupl)
+        # a verifier comment cela se comporte ...
         total = len(a_tests)
         nok = 0
         totalg = 0
@@ -187,6 +204,13 @@ class RandMRSortLearning():
                 totalg +=1
                 if al_tests(alt.id) == "cat1":
                     okg += 1
+            # mesure the effect of enforcing constraints in the presence of duplicated criteria
+            #import pdb; pdb.set_trace()
+            for i,j in self.model2.criteria.items():
+                if i[-1] == "d":
+                    if self.model2.bpt['b1'].performances[i] > pt_tests_dupl[alt.id].performances[i]:
+                        self.nb_under_lim_prof_test[self.num_model] += 1
+            #import pdb; pdb.set_trace()
         totalg = 1 if totalg == 0 else totalg
         self.ca_tests_avg += [(float(total-nok)/total)]
         self.ca_good_tests_avg += (float(okg)/totalg)
@@ -234,6 +258,8 @@ class RandMRSortLearning():
                         self.cpt_dupl_right_crit[self.num_model][1] += 1
                     else :
                         self.cpt_dupl_right_crit[self.num_model][2] += 1
+                    if float(list(self.model2.cv.values())[c_dupl].value) < float(list(self.model2.cv.values())[i].value):
+                        self.cpt_gt_right_w[self.num_model] += 1
                 # if model.criteria.values()[i].direction == -1: 
                 #     if float(model2.cv.values()[i].value) == 0 and float(model2.cv.values()[c_dupl].value) != 0:
                 #         nb_right_crit_dir[num_model] += 1
@@ -255,10 +281,11 @@ class RandMRSortLearning():
 
 
     def report_stats_parameters_csv(self):
+        str_noise = "_err" + str(self.noise) if self.noise != None else ""
         if self.dir_criteria is None:
-            self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.nb_categories))  + "_dupl" + str(len(self.l_dupl_criteria)) + "/"
+            self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.nb_categories))  + "_dupl" + str(len(self.l_dupl_criteria)) + str_noise + "/"
         else:
-            self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.dir_criteria.count(1))) + "-" + str(int(self.dir_criteria.count(-1))) + "_dupl" + str(len(self.l_dupl_criteria)) + "/"
+            self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.dir_criteria.count(1))) + "-" + str(int(self.dir_criteria.count(-1))) + "_dupl" + str(len(self.l_dupl_criteria)) + str_noise + "/"
 
         if not os.path.exists(DATADIR + self.output_dir):
             os.mkdir(DATADIR + self.output_dir)
@@ -294,6 +321,8 @@ class RandMRSortLearning():
         self.writer.writerow([',nb_cat1',","+str([str(i.category_id) for i in self.aa].count("cat1"))])
         self.writer.writerow([',nb_cat2',","+str([str(i.category_id) for i in self.aa].count("cat2"))])
         self.writer.writerow([',nb_dupl_criteria,', str(len(self.l_dupl_criteria))])
+        if self.noise != None:
+            self.writer.writerow([',learning_set_noise,', str(self.noise)])
 
 
 
@@ -313,18 +342,25 @@ class RandMRSortLearning():
         self.writer.writerow([',w_dupl_right_weights,', str(self.w_dupl_right_crit[self.num_model])])
         self.writer.writerow([',nb_right_crit,', str((self.cpt_right_crit[self.num_model][0]))])
         self.writer.writerow([',nb_null_crit,', str((self.cpt_right_crit[self.num_model][1]))])
+        self.writer.writerow([',nb_w_right_greater_dupl,', str(float(self.cpt_gt_right_w[self.num_model]))])
         self.writer.writerow([',nb_right_weights,', str(self.w_right_crit[self.num_model])])
         self.writer.writerow([',assignments_id,', ",".join([str(i.id) for i in self.aa_learned])])
         self.writer.writerow([',assignments_cat,',",".join([str(i.category_id) for i in self.aa_learned])])
 
         self.writer.writerow(['LEARNED MODEL (validation)'])
         self.writer.writerow([',CA,', str(self.ca_avg[self.num_model])])
+        if self.nb_dupl_criteria:
+            self.writer.writerow([',%_alt_under_prof_val,', str(self.nb_under_lim_prof_val[self.num_model]/self.nb_alternatives/self.nb_dupl_criteria)])
         #self.writer.writerow([',CA_good,', str(cag_v)])
 
         self.writer.writerow(['MODEL TEST'])
         self.writer.writerow([',CA_tests,', str(self.ca_tests_avg[self.num_model])])
+        if self.nb_dupl_criteria:
+            self.writer.writerow([',%_alt_under_prof_test,', str(self.nb_under_lim_prof_test[self.num_model]/self.nb_tests/self.nb_dupl_criteria)])
+
         #self.writer.writerow([',CA_good_tests,', str(cag_t)])
         #import pdb; pdb.set_trace()
+        
 
 
     def report_summary_results_csv(self):
@@ -345,15 +381,21 @@ class RandMRSortLearning():
         self.writer.writerow([',w_dupl_right_weights_avg,', str(float(sum(self.w_dupl_right_crit))/len(self.w_dupl_right_crit))])
         self.writer.writerow([',nb_right_crit_avg,', str(float(sum([i[1][0] for i in self.cpt_right_crit.items()]))/len(self.cpt_right_crit))])
         self.writer.writerow([',nb_null_crit_avg,', str(float(sum([i[1][1] for i in self.cpt_right_crit.items()]))/len(self.cpt_right_crit))])
+        if self.nb_dupl_criteria:
+            self.writer.writerow([',%_w_right_greater_dupl,', str(float(sum(self.cpt_gt_right_w))/self.nb_models/self.nb_dupl_criteria)])
         self.writer.writerow([',w_right_weights_avg,', str(float(sum(self.w_right_crit))/len(self.w_right_crit))])
         self.writer.writerow([',CA_avg,', str(sum(self.ca_avg)/self.nb_models)])
+        if self.nb_dupl_criteria:
+            self.writer.writerow([',%_alt_under_prof_val_avg,', str(sum(self.nb_under_lim_prof_val)/self.nb_models/self.nb_alternatives/self.nb_dupl_criteria)])
+
         #self.writer.writerow([',CA_good_avg,', str(self.ca_good_avg/self.nb_models)])
         self.writer.writerow([',CA_tests_avg,', str(sum(self.ca_tests_avg)/self.nb_models)])
+        if self.nb_dupl_criteria:
+            self.writer.writerow([',%_alt_under_prof_val_test,', str(sum(self.nb_under_lim_prof_test)/self.nb_models/self.nb_tests/self.nb_dupl_criteria)])
         #self.writer.writerow([',CA_good_tests_avg,', str(self.ca_good_tests_avg/self.nb_models)])
         
-
+        
     def report_plot_results_csv(self):
-
         dt = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         filename = "%s/plot_results_meta_mrsort3-rand-%d-%d-%d-%d-%s.csv" \
                                 % (DATADIR + self.output_dir,self.nb_alternatives, self.nb_categories, self.nb_criteria, len(self.l_dupl_criteria), dt)
@@ -366,8 +408,10 @@ class RandMRSortLearning():
         writer.writerow([',CA_tests_avg_list,', [round(i,2) for i in self.ca_tests_avg]])
         if self.l_dupl_criteria:
             writer.writerow([',n_dupl_GODD_crit_avg_list,', [round(float(i[1][1]+i[1][0])/len(self.l_dupl_criteria),2) for i in self.cpt_dupl_right_crit.items()]])
+            #writer.writerow([',n_dupl_GODD_crit_avg_list,', [round(float(i)/len(self.l_dupl_criteria),2) for i in self.cpt_gt_right_w]])
         else:
             writer.writerow([',n_dupl_GODD_crit_avg_list,', [0]*self.nb_models])
+
 
 
     # build the instance transformed (with duplication of elements of performance table.)
