@@ -120,35 +120,6 @@ def generate_random_criteria_weights(crits, seed = None, k = 3):
 
     return cvals
 
-
-def generate_random_criteria_weights_msjp(crits, seed = None, k = 3, fixed_w1 = None):
-    if seed is not None:
-        random.seed(seed)
-
-    if fixed_w1 is None:
-        weights = [ random.random() for i in range(len(crits) - 1) ]
-    else :
-        weights = [ round(random.uniform(0,1-fixed_w1),k) for i in range(len(crits) - 2) ]
-        weights = [(fixed_w1 + i) for i in weights]
-        weights = weights + [round(fixed_w1,k)]
-    weights.sort()
-
-    cvals = CriteriaValues()
-    for i, c in enumerate(crits):
-        cval = CriterionValue()
-        cval.id = c.id
-        if i == 0:
-            cval.value = round(weights[i], k)
-        elif i == len(crits) - 1:
-            cval.value = round(1 - weights[i - 1], k)
-        else:
-            cval.value = round(weights[i] - weights[i - 1], k)
-
-        cvals.append(cval)
-
-    return cvals
-
-
 def generate_random_criteria_values(crits, seed = None, k = 3,
                                     type = 'float', vmin = 0, vmax = 1):
     if seed is not None:
@@ -257,18 +228,8 @@ def generate_categories(number, prefix = 'cat', names = None):
 
     return cats
 
-
-def generate_categories_msjp(number, prefix = 'cat', names = None):
-    cats = Categories()
-    for i in range(number):
-        cid = names[i] if names is not None else "%s%d" % (prefix, i+1)
-        c = Category(cid, rank = number - i)
-        cats.append(c)
-        
-    return cats
-
 def generate_random_profiles(alts, crits, seed = None, k = 3,
-                             worst = None, best = None, prof_threshold = 0.05):
+                             worst = None, best = None):
     if seed is not None:
         random.seed(seed)
 
@@ -282,18 +243,13 @@ def generate_random_profiles(alts, crits, seed = None, k = 3,
     pt = PerformanceTable()
     for c in crits:
         rdom = []
-
         for i in range(n):
             minp = worst.performances[c.id]
             maxp = best.performances[c.id]
             if minp > maxp:
                 minp, maxp = maxp, minp
-            
-#            if c.id == "c1":
-#                rdom.append(round(random.uniform(0.4, 0.6), k))
-#            else:
-#                rdom.append(round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k))
-            rdom.append(round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k))
+
+            rdom.append(round(random.uniform(minp, maxp), k))
 
         if c.direction == -1:
             rdom.sort(reverse = True)
@@ -308,12 +264,12 @@ def generate_random_profiles(alts, crits, seed = None, k = 3,
             perfs[c.id] = crit_random[c.id][i]
         ap = AlternativePerformances(a, perfs)
         pt.append(ap)
-    
+
     return pt
 
 
 def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
-                             worst = None, best = None, fct_percentile = [], nb_unk_criteria = 0):
+                             worst = None, best = None):
     if seed is not None:
         random.seed(seed)
 
@@ -334,10 +290,8 @@ def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
             maxp = best.performances[c.id]
             if minp > maxp:
                 minp, maxp = maxp, minp
-            if int(c.id[1:]) <= nb_unk_criteria:
-                rdom.append(round(random.uniform(max(minp,fct_percentile[int(c.id[1:])-1][0]), min(maxp,fct_percentile[int(c.id[1:])-1][1])), k))
-            else:
-                rdom.append(round(random.uniform(minp,maxp),k))
+
+            rdom.append(round(random.uniform(minp, maxp), k))
 
         if c.direction == -1:
             rdom.sort(reverse = True)
@@ -345,7 +299,6 @@ def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
             rdom.sort()
 
         crit_random[c.id] = rdom
-    
 
     for i, a in enumerate(alts):
         perfs = {}
@@ -353,7 +306,7 @@ def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
             perfs[c.id] = crit_random[c.id][i]
         ap = AlternativePerformances(a, perfs)
         pt.append(ap)
-    
+
     return pt
 
 
@@ -486,7 +439,7 @@ def generate_random_mrsort_model(ncrit, ncat, seed = None, k = 3,
 # seed can be used in order to keep the generation reproducible
 def generate_random_mrsort_model_msjp(ncrit, ncat, seed = None, k = 3,
                                  worst = None, best = None,
-                                 random_direction = False, random_directions = None, fixed_w1 = None, min_w = 0.05, prof_threshold = 0.05):
+                                 random_direction = False, random_directions = None):
     if seed is not None:
         random.seed(int(seed))
     
@@ -500,41 +453,20 @@ def generate_random_mrsort_model_msjp(ncrit, ncat, seed = None, k = 3,
     if best is None:
         best = generate_best_ap(c)
 
-    no_min_w =  True
-    while no_min_w:
-        random.seed()
-        cv = generate_random_criteria_weights_msjp(c, None, k, fixed_w1)
-        #import pdb; pdb.set_trace()
-        if [i for i in list(cv.values()) if i.value < min_w] == []: # and [i for i in list(cv.values()) if i.value == 0] == [] :
-            no_min_w = False
-#    if cv["c1"].value < 0.1:
-#        #print([i.value for i in list(cv.values())])
-#        maxi = max([i.value for i in list(cv.values())])
-#        for i in list(cv.values()):
-#            if maxi == i.value:
-#                i.value = round(i.value-0.05,k)
-#                break
-#        cv["c1"].value = round(cv["c1"].value+0.05,k)
-        #print([i.value for i in list(cv.values())])
-        #import pdb; pdb.set_trace()
-    
-        
     random.seed()
-    cat = generate_categories_msjp(ncat)
+    cv = generate_random_criteria_weights(c, None, k)
+    random.seed()
+    cat = generate_categories(ncat)
     random.seed()
     cps = generate_categories_profiles(cat)
     random.seed()
     b = cps.get_ordered_profiles()
     random.seed()
-    bpt = generate_random_profiles(b, c, None, k, worst, best, prof_threshold = prof_threshold)
+    bpt = generate_random_profiles(b, c, None, k, worst, best)
     random.seed()
-    #random.seed(int(random.random()*100))
-    #lbda = round(random.uniform(0.5, 1), k)
-    # to avoid a dictotorial criteria, we have:
+    # random.seed(int(random.random()*100))
+    lbda = round(random.uniform(0.5, 1), k)
     #import pdb; pdb.set_trace()
-    lbda = round(random.uniform(max(0.5,cv.max())+0.01, 1), k)
-    #import pdb; pdb.set_trace()
-    #print(cv.max(),lbda)
 
     return MRSort(c, cv, bpt, lbda, cps)
 
