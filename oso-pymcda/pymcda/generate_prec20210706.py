@@ -16,7 +16,6 @@ from pymcda.types import CategoryProfile, CategoriesProfiles, Limits
 from pymcda.types import PiecewiseLinear, Point, Segment
 from pymcda.types import CategoryValue, CategoriesValues, Interval
 from pymcda.types import CriteriaSet
-import numpy as np
 
 VETO_ABS = 1
 VETO_PROP = 2
@@ -76,7 +75,7 @@ def generate_criteria(number, prefix = 'c', random_direction = False,
         if random_direction is True:
             c.direction = random.choice([-1, 1])
         crits.append(c)
-        
+
     return crits
 
 def generate_criteria_msjp(number, prefix = 'c', random_direction = False,
@@ -95,7 +94,7 @@ def generate_criteria_msjp(number, prefix = 'c', random_direction = False,
             c = Criterion(cid)
             c.direction = random_directions[i]
             crits.append(c)
-            
+
     return crits
 
 
@@ -223,35 +222,6 @@ def generate_random_performance_table_msjp(alts, crits, seed = None, k = 3,
     return pt,pt_dupl
 
 
-def generate_random_performance_table_msjp_mip(alts, crits, seed = None, k = 2,
-                                      worst = None, best = None, dupl_crits = None, cardinality=10):
-    if seed is not None:
-        random.seed(seed)
-
-    pt = PerformanceTable()
-    pt_dupl = PerformanceTable()
-    tmp_ids = [i.id for i in dupl_crits]
-    for a in alts:
-        perfs = {}
-        perfs_dupl = {}
-        for c in crits:
-            rdom = round(random.choice([f for f in np.arange(0,1.+1./(10**k),1./(cardinality-1))]),k)
-
-
-            perfs[c.id] = rdom
-            perfs_dupl[c.id] = rdom
-            if (c.id+"d") in tmp_ids:
-                perfs_dupl[(c.id+"d")] = rdom
-
-
-        ap = AlternativePerformances(a.id, perfs)
-        ap_dupl = AlternativePerformances(a.id, perfs_dupl)
-        pt.append(ap)
-        pt_dupl.append(ap_dupl)
-
-    return pt,pt_dupl
-
-
 
 def duplicate_performance_table_msjp(pt, alts, crits, seed = None, k = 3,
                                       worst = None, best = None, dupl_crits = None):
@@ -291,18 +261,14 @@ def generate_categories(number, prefix = 'cat', names = None):
 def generate_categories_msjp(number, prefix = 'cat', names = None):
     cats = Categories()
     for i in range(number):
-    #for i in reversed(range(number)):
         cid = names[i] if names is not None else "%s%d" % (prefix, i+1)
-        #cid = names[i] if names is not None else "%s%d" % (prefix, number - i)
         c = Category(cid, rank = number - i)
-        #c = Category(cid, rank = i + 1)
         cats.append(c)
         
     return cats
 
-#only for the generation of profiles of original models
 def generate_random_profiles(alts, crits, seed = None, k = 3,
-                             worst = None, best = None, prof_threshold = 0.05, fixed_profc1 = None):
+                             worst = None, best = None, prof_threshold = 0.05):
     if seed is not None:
         random.seed(seed)
 
@@ -313,7 +279,6 @@ def generate_random_profiles(alts, crits, seed = None, k = 3,
 
     crit_random = {}
     n = len(alts)
-    #print(alts)
     pt = PerformanceTable()
     for c in crits:
         rdom = []
@@ -324,53 +289,29 @@ def generate_random_profiles(alts, crits, seed = None, k = 3,
             if minp > maxp:
                 minp, maxp = maxp, minp
             
-            if fixed_profc1 is not None and c.id == "c1":
-                #rdom.append(0.5)
-                rdom.append(round(random.uniform(0.5-fixed_profc1, 0.5+fixed_profc1), k))
-                #print("rdom ",rdom)
-            else:
-                if c.direction == 2 or c.direction == -2:
-                    #print(c,crits)
-                    #if criteria are known
-                    b_sp =tuple(sorted([round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k),round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k)]))
-                    #b_sp = (round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k),1)
-                    rdom.append(b_sp)
-                    #the following assumes that criteria types are not known, but all fixed under SP construction  
-                    # if c.id == [c.id for c in crits][-1]:
-                    #     b_sp =tuple(sorted([round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k),round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k)]))
-                    #     rdom.append(b_sp)
-                    # else:
-                    #     b_sp = (round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k),1)
-                    #     rdom.append(b_sp)
-                    #print(rdom)
-                else:
-                    rdom.append(round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k))
-                    #rdom.append((round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k),1))                    
-            #rdom.append(round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k))
-        
+#            if c.id == "c1":
+#                rdom.append(round(random.uniform(0.4, 0.6), k))
+#            else:
+#                rdom.append(round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k))
+            rdom.append(round(random.uniform(max(minp,prof_threshold), min(1-prof_threshold,maxp)), k))
+
         if c.direction == -1:
             rdom.sort(reverse = True)
         else:
             rdom.sort()
-        #rdom.sort(reverse = True)
 
         crit_random[c.id] = rdom
-    
-    # if n==2:
-    #     import pdb; pdb.set_trace()
+
     for i, a in enumerate(alts):
         perfs = {}
         for c in crits:
             perfs[c.id] = crit_random[c.id][i]
         ap = AlternativePerformances(a, perfs)
         pt.append(ap)
-        # if n==2:
-        #     import pdb; pdb.set_trace()
     
     return pt
 
 
-# only generating profiles randomly as an initialization, so that to be modified in the learning process
 def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
                              worst = None, best = None, fct_percentile = [], nb_unk_criteria = 0):
     if seed is not None:
@@ -393,7 +334,7 @@ def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
             maxp = best.performances[c.id]
             if minp > maxp:
                 minp, maxp = maxp, minp
-            if (c.id[-1] != "d") and (int(c.id[1:]) <= nb_unk_criteria):
+            if int(c.id[1:]) <= nb_unk_criteria:
                 rdom.append(round(random.uniform(max(minp,fct_percentile[int(c.id[1:])-1][0]), min(maxp,fct_percentile[int(c.id[1:])-1][1])), k))
             else:
                 rdom.append(round(random.uniform(minp,maxp),k))
@@ -405,7 +346,7 @@ def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
 
         crit_random[c.id] = rdom
     
-    #import pdb; pdb.set_trace()
+
     for i, a in enumerate(alts):
         perfs = {}
         for c in crits:
@@ -413,82 +354,17 @@ def generate_random_profiles_msjp(alts, crits, seed = None, k = 3,
         ap = AlternativePerformances(a, perfs)
         pt.append(ap)
     
-    return pt
-
-# for initialization of learned models : with sp (first v0, not taking into account the learning of preference direction)
-def generate_random_profiles_msjp_sp(alts, crits, seed = None, k = 3,
-                             worst = None, best = None, fct_percentile = [], nb_unk_criteria = 0):
-    if seed is not None:
-        random.seed(seed)
-
-    if worst is None:
-        worst = generate_worst_ap(crits)
-    if best is None:
-        best = generate_best_ap(crits)
-
-    crit_random = {}
-    n = len(alts) # here it represents profiles
-    pt = PerformanceTable()
-    random.seed(seed)
-    for c in crits:
-        rdom = []
-        random.seed(seed)
-        for i in range(n):
-            minp = worst.performances[c.id]
-            maxp = best.performances[c.id]
-            if minp > maxp:
-                minp, maxp = maxp, minp
-            # if (c.id[-1] != "d") and (int(c.id[1:]) <= nb_unk_criteria):
-            #     rdom.append(round(random.uniform(max(minp,fct_percentile[int(c.id[1:])-1][0]), min(maxp,fct_percentile[int(c.id[1:])-1][1])), k))
-            # else:
-            #     rdom.append(round(random.uniform(minp,maxp),k))
-            if c.direction == 2 or c.direction == -2:
-                b_sp =tuple(sorted([round(random.uniform(minp,maxp), k),round(random.uniform(minp,maxp), k)]))
-                #we assume to know temporarily the value of the bottom
-                #b_sp = (0.4,round(random.uniform(0.4,maxp), k))
-                #b_sp = (round(random.uniform(0,0.6), k),0.6)
-                rdom.append(b_sp)
-            else:
-                # if c.id == "c1":
-                #     rdom.append(0.3)
-                # elif c.id == "c2" or c.id == "c3":
-                #     rdom.append(0.8)
-                # else:
-                rdom.append(round(random.uniform(minp, maxp), k))
-                
-                
-        #For the moment this test below is useless as long as we have only 2 categories  (neeed to be may be review)
-        if c.direction == -1:
-            rdom.sort(reverse = True)
-        else:
-            rdom.sort()
-        #import pdb; pdb.set_trace()
-
-        crit_random[c.id] = rdom
-    
-    #import pdb; pdb.set_trace()
-    for i, a in enumerate(alts):
-        perfs = {}
-        for c in crits:
-            perfs[c.id] = crit_random[c.id][i]
-        ap = AlternativePerformances(a, perfs)
-        pt.append(ap)
-    #import pdb; pdb.set_trace()
     return pt
 
 
 def generate_categories_profiles(cats, prefix='b'):
     cat_ids = cats.get_ordered_categories()
     cps = CategoriesProfiles()
-    #import pdb; pdb.set_trace()
     for i in range(len(cats)-1):
         l = Limits(cat_ids[i], cat_ids[i+1])
-        #cp = CategoryProfile("%s%d" % (prefix, len(cats) - i - 1), l)
-        cp = CategoryProfile("%s%d" % (prefix, i + 1), l)
+        cp = CategoryProfile("%s%d" % (prefix, len(cats) - i - 1), l)
         cps.append(cp)
-        #import pdb; pdb.set_trace()
     return cps
-
 
 def generate_random_piecewise_linear(gi_min = 0, gi_max = 1, n_segments = 3,
                                      ui_min = 0, ui_max = 1, k = 3):
@@ -610,7 +486,7 @@ def generate_random_mrsort_model(ncrit, ncat, seed = None, k = 3,
 # seed can be used in order to keep the generation reproducible
 def generate_random_mrsort_model_msjp(ncrit, ncat, seed = None, k = 3,
                                  worst = None, best = None,
-                                 random_direction = False, random_directions = None, fixed_w1 = None, fixed_profc1 = None, min_w = 0.05, prof_threshold = 0.05):
+                                 random_direction = False, random_directions = None, fixed_w1 = None, min_w = 0.05, prof_threshold = 0.05):
     if seed is not None:
         random.seed(int(seed))
     
@@ -618,7 +494,6 @@ def generate_random_mrsort_model_msjp(ncrit, ncat, seed = None, k = 3,
     #random.seed(int(random.random()*100))
 
     c = generate_criteria_msjp(ncrit, random_direction = random_direction, random_directions = random_directions)
-    #import pdb; pdb.set_trace()
     random.seed()
     if worst is None:
         worst = generate_worst_ap(c)
@@ -642,25 +517,17 @@ def generate_random_mrsort_model_msjp(ncrit, ncat, seed = None, k = 3,
 #        cv["c1"].value = round(cv["c1"].value+0.05,k)
         #print([i.value for i in list(cv.values())])
         #import pdb; pdb.set_trace()
+    
         
     random.seed()
     cat = generate_categories_msjp(ncat)
-    #import pdb; pdb.set_trace()
     random.seed()
     cps = generate_categories_profiles(cat)
-    #import pdb; pdb.set_trace()
     random.seed()
     b = cps.get_ordered_profiles()
-    #import pdb; pdb.set_trace()
     random.seed()
-    bpt = generate_random_profiles(b, c, None, k, worst, best, prof_threshold = prof_threshold, fixed_profc1=fixed_profc1)
-    #import pdb; pdb.set_trace()
-    # while bpt['b1'].performances["c1"] != 0.5:
-    #     print(bpt['b1'].performances["c1"])
-    #     bpt = generate_random_profiles(b, c, None, k, worst, best, prof_threshold = prof_threshold)
-    #print(bpt)
+    bpt = generate_random_profiles(b, c, None, k, worst, best, prof_threshold = prof_threshold)
     random.seed()
-    #prompt => bpt['b1'].performances["c1"]
     #random.seed(int(random.random()*100))
     #lbda = round(random.uniform(0.5, 1), k)
     # to avoid a dictotorial criteria, we have:

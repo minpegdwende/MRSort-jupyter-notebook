@@ -704,14 +704,14 @@ class RandMRSortLearning():
         str_pretreatment = "_pretreatment" if self.pretreatment else ""
         if self.fixed_w1:
             if self.dir_criteria is None:
-                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.nb_categories))  + "_1w" + str(self.fixed_w1) + str_noise + str_pretreatment + "/"
+                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.nb_categories))  + "_1w" + str(self.fixed_w1) + str_noise + str_pretreatment
             else:
-                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.dir_criteria.count(1))) +  "_1w" + str(self.fixed_w1) + str_noise + str_pretreatment + "/"
+                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.dir_criteria.count(1))) +  "_1w" + str(self.fixed_w1) + str_noise + str_pretreatment
         else:
             if self.dir_criteria is None:
-                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.nb_categories))  + "_dupl" + str(len(self.l_dupl_criteria)) + str_noise + str_pretreatment + "/"
+                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.nb_categories))  + "_dupl" + str(len(self.l_dupl_criteria)) + str_noise + str_pretreatment
             else:
-                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.dir_criteria.count(1))) + "-" + str(int(self.dir_criteria.count(-1))) + "_dupl" + str(len(self.l_dupl_criteria)) + str_noise + str_pretreatment + "/"
+                self.output_dir = "/rand_valid_test_na" + str(int(self.nb_alternatives)) + "_nca" + str(int(self.nb_categories)) + "_ncr" + str(int(self.dir_criteria.count(1))) + "-" + str(int(self.dir_criteria.count(-1))) + "_dupl" + str(len(self.l_dupl_criteria)) + str_noise + str_pretreatment
 
         if not os.path.exists(DATADIR + self.output_dir):
             os.mkdir(DATADIR + self.output_dir)
@@ -752,6 +752,7 @@ class RandMRSortLearning():
             self.writer.writerow([',duplication,',self.duplication])
             if self.fixed_w1:
                 self.writer.writerow([',pretreatment_fixed_w1,', self.fixed_w1])
+            #tmp_newfile.close()
 
 
     def report_original_model_param_csv(self):
@@ -774,6 +775,7 @@ class RandMRSortLearning():
             self.writer.writerow([',nb_dupl_criteria,', str(len(self.l_dupl_criteria))])
             if self.noise != None:
                 self.writer.writerow([',learning_set_noise,', str(self.noise)])
+            #tmp_newfile.close()
 
 
 
@@ -819,6 +821,7 @@ class RandMRSortLearning():
 
             #self.writer.writerow([',CA_good_tests,', str(cag_t)])
             #import pdb; pdb.set_trace()
+            #tmp_newfile.close()
 
 
     def report_summary_results_csv(self):
@@ -877,6 +880,7 @@ class RandMRSortLearning():
     #        if self.nb_dupl_criteria:
     #            self.writer.writerow([',%_alt_under_prof_val_test,', str(sum([sum(i.values()) for i in self.nb_under_lim_prof_test])/self.nb_models/self.nb_tests/self.nb_dupl_criteria)])
             #self.writer.writerow([',CA_good_tests_avg,', str(self.ca_good_tests_avg/self.nb_models)])
+            #tmp_newfile.close()
 
 
 

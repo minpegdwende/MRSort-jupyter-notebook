@@ -249,7 +249,6 @@ class ElectreTri(McdaObject):
 
         return score / (nlower * nupper)
 
-    #@profile
     def auc(self, aa, pt):
         auck_sum = 0
         for k in range(1, len(self.profiles) + 1):
@@ -301,16 +300,6 @@ class MRSort(ElectreTri):
                  veto_weights = None, veto_lbda = None, id = None):
         super(MRSort, self).__init__(criteria, cv, bpt, lbda,
                                      categories_profiles)
-        #for possibly single-peaked criteria (or single valleyed) : 
-        #self.bpt_sp = [(0,1)]*len(categories_profiles)
-        self.bpt_sp = PerformanceTable()
-        #import pdb; pdb.set_trace()
-        if not(self.bpt is None):
-            for i,j in categories_profiles.items():
-                ap = deepcopy(self.bpt[i])
-                self.bpt_sp.append(ap)
-        #import pdb; pdb.set_trace()
-        self.b_peak = None
         self.veto = veto
         self.veto_weights = veto_weights
         self.veto_lbda = veto_lbda
@@ -348,32 +337,8 @@ class MRSort(ElectreTri):
 
         return criteria_set
 
-    def criteria_coalition_sp(self, ap1, ap2):
-        criteria_set = set()
-
-        for c in self.criteria:
-            if abs(c.direction) == 1:
-                diff = ap2.performances[c.id] - ap1.performances[c.id]
-                diff *= c.direction
-            elif abs(c.direction) == 2:
-                b_mid = sum(ap2.performances[c.id])/2
-                newprof = (ap2.performances[c.id][1]-ap2.performances[c.id][0])/2
-                newap1 = abs(ap1.performances[c.id]-b_mid)
-                diff = newprof - newap1
-                diff *= c.direction/(-2)
-            if round(diff,10) <= 0:
-            #if diff <= 0:
-                criteria_set.add(c.id)
-
-        return criteria_set
-    
     def concordance(self, ap, profile):
         criteria_set = self.criteria_coalition(ap, profile)
-        return sum([c.value for c in self.cv
-                    if c.id_issubset(criteria_set) is True])
-
-    def concordance_sp(self, ap, profile):
-        criteria_set = self.criteria_coalition_sp(ap, profile)
         return sum([c.value for c in self.cv
                     if c.id_issubset(criteria_set) is True])
 
@@ -417,43 +382,12 @@ class MRSort(ElectreTri):
 
         return AlternativeAssignment(ap.id, cat)
 
-    def get_assignment_sp(self, ap):
-        categories = list(reversed(self.categories))
-        cat = categories[0]
-        for i, profile in enumerate(reversed(self.profiles)):
-            bp = self.bpt[profile]
-            cw = self.concordance_sp(ap, bp)
-            if cw >= self.lbda:
-                if self.vpt is None:
-                    break
-                else:
-                    vp = self.vpt[profile]
-                    vw = self.veto_concordance(ap, vp)
-                    if self.veto_lbda and vw < self.veto_lbda:
-                        break
-
-                    if vw == 0:
-                        break
-
-            cat = categories[i + 1]
-
-        return AlternativeAssignment(ap.id, cat)
-
-
     def get_assignments(self, pt):
         aa = AlternativesAssignments()
         for ap in pt:
             a = self.get_assignment(ap)
             aa.append(a)
         return aa
-
-    def get_assignments_sp(self, pt):
-        aa = AlternativesAssignments()
-        for ap in pt:
-            a = self.get_assignment_sp(ap)
-            aa.append(a)
-        return aa
-
 
     def pessimist(self, pt):
         return self.get_assignments(pt)

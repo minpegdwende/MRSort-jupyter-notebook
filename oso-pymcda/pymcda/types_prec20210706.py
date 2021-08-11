@@ -446,8 +446,6 @@ class Criterion(McdaObject):
 
     MINIMIZE = -1
     MAXIMIZE = 1
-    SINGLEPEAKED = 2
-    SINGLEVALLEYED = -2
 
     def __init__(self, id=None, name=None, disabled=False,
                  direction=MAXIMIZE, weight=None, thresholds=None, dupl_id=None):
@@ -473,17 +471,7 @@ class Criterion(McdaObject):
 
     def __repr__(self):
         """Manner to represent the MCDA object"""
-        if self.direction == 1:
-            direction = "+"  
-        elif self.direction == -1:
-            direction = "-"
-        elif self.direction == 2:
-            direction = "+-"
-        elif self.direction == -2:
-            direction = "-+"
-        else:
-            direction = "unknowned"
-            
+        direction = "+" if self.direction == 1 else "-"
         return "%s (%s)" % (self.id, direction)
 
     def to_xmcda(self, id = None):
@@ -625,7 +613,6 @@ class CriteriaValues(McdaDict):
 
     def display(self, criterion_ids = None, fmt = None, out = sys.stdout):
         if criterion_ids is None:
-            #criterion_ids = self.keys()
             criterion_ids = list(self.keys())
             criterion_ids.sort()
         if fmt is None:
@@ -849,8 +836,7 @@ class PerformanceTable(McdaDict):
         for ap in self:
             l = max(len(ap.id), l)
             for k, v in ap.performances.items():
-                # m = max(len(k), len("%s" % v))
-                m = max(len(k), len("%s" % v.__str__()))
+                m = max(len(k), len("%s" % v))
                 col[k] = m if k not in col else max(col[k], m)
 
         crit = list(col.keys())
@@ -939,9 +925,7 @@ class PerformanceTable(McdaDict):
         """
 
         if cids is None:
-            #cids = next(self._d.itervalues()).performances.keys()
-            #import pdb; pdb.set_trace()
-            cids = next(iter(self._d.values())).performances.keys()
+            cids = next(self._d.itervalues()).performances.keys()
 
         for ap in self._d.values():
             ap.round(k, cids)
@@ -1087,21 +1071,18 @@ class PerformanceTable(McdaDict):
     def display(self, criterion_ids = None, alternative_ids = None,
                 fmt = None, out = sys.stdout):
         if criterion_ids is None:
-            #criterion_ids = next(self.itervalues()).performances.keys()
             criterion_ids = list(next(self.itervalues()).performances.keys())
             criterion_ids.sort()
         if alternative_ids is None:
-            #alternative_ids = self.keys()
             alternative_ids = list(self.keys())
             alternative_ids.sort()
         if fmt is None:
-            #fmt = {cid: "%5g" for cid in criterion_ids}
-            fmt = {cid: "%s" for cid in criterion_ids}
+            fmt = {cid: "%5g" for cid in criterion_ids}
 
         # Compute max column length
         cols_max = { "aids": (max([len(aid) for aid in self.keys()])) }
         for cid in criterion_ids:
-            cols_max[cid] = max([len(fmt[cid] % str(ap.performances[cid]))
+            cols_max[cid] = max([len(fmt[cid] % ap.performances[cid])
                                  for ap in self.values()] + [len(cid)])
 
         # Print header
@@ -1180,7 +1161,7 @@ class AlternativePerformances(McdaObject):
 
         string = "%s:" % self.id
         for k, v in self.performances.items():
-            string += " %s: %s\n" % (k, v)
+            string += " %s: %f\n" % (k, v)
             string += " " * (len(self.id) + 1)
 
         return string[:string.rfind('\n')]
@@ -1244,12 +1225,8 @@ class AlternativePerformances(McdaObject):
         minimize"""
 
         for crit in c:
-            if abs(crit.direction) == 1:
-                self.performances[crit.id] *= crit.direction
-            #transforming single peakeds critteria evaluations into cost criterria evaluations
-            # if crit.direction == 2:
-            #     self.performances[crit.id] *= (-1)
-                
+            self.performances[crit.id] *= crit.direction
+
     def round(self, k = 3, cids = None):
         """Round all performances on criteria cids to maximum k digit
         Kwargs:
@@ -2415,7 +2392,6 @@ class AlternativesAssignments(McdaDict):
 
     def display(self, alternative_ids = None, out = sys.stdout):
         if alternative_ids is None:
-            #alternative_ids = self.keys()
             alternative_ids = list(self.keys())
             alternative_ids.sort()
 
